@@ -61,6 +61,7 @@ class Augmented:
                     point2X = text['points'][entry['points'][1]][1][1]
                     point2Y = text['points'][entry['points'][1]][1][0]
 
+                    print(point1X, point1Y, point2X, point2Y)
 
                     point1RatioX = point1X / 1
                     point1RatioY = point1Y / 1
@@ -72,14 +73,17 @@ class Augmented:
                     point2CameraFrameX = int(round(point2RatioX * imageWidth,0))
                     point2CameraFrameY = int(round(point2RatioY * imageHeight,0))
 
-                    point1 = [point1CameraFrameX, point1CameraFrameY]
-                    point2 = [point2CameraFrameX, point2CameraFrameY]
+                    print(point1CameraFrameX, point1CameraFrameY, point2CameraFrameX, point2CameraFrameY)
+
+                    pointX = [point1CameraFrameX, point2CameraFrameX]
+                    pointY = [point1CameraFrameY, point2CameraFrameY]
 
                     color = entry['color']
-                    image = self.draw_segment(data, point1, point2, color)
-                    image_message = CvBridge().cv2_to_compressed_imgmsg(image)
 
-                    return image_message
+                    image = self.draw_segment(data, pointX, pointY, color)
+                image_message = CvBridge().cv2_to_compressed_imgmsg(image)
+
+                return image_message
             except yaml.YAMLError as exc:
                 print(exc)
 
@@ -92,7 +96,6 @@ class Augmented:
         self.readParamFromFile()
 
         self.parameters['~homography'] = rospy.get_param('~homography')
-        print(self.parameters['~homography'])
         self.parameters['~camera_matrix'] = np.array(rospy.get_param('~camera_matrix'))
         self.parameters['~distortion_coefficients'] = np.array(rospy.get_param('~distortion_coefficients'))
         self.parameters['~projection_matrix'] = np.array(rospy.get_param('~projection_matrix'))
@@ -103,18 +106,18 @@ class Augmented:
         self.parameters['~projection_matrix'] = np.reshape(self.parameters['~projection_matrix'], (3, 4))
         self.parameters['~rectification_matrix'] = np.reshape(self.parameters['~rectification_matrix'], (3, 3))
 
-
-        print(self.parameters['~camera_matrix'])
-        print(self.parameters['~camera_matrix'].shape)
-
-        print(self.parameters['~distortion_coefficients'])
-        print(self.parameters['~distortion_coefficients'].shape)
-
-        print(self.parameters['~projection_matrix'])
-        print(self.parameters['~projection_matrix'].shape)
-
-        print(self.parameters['~rectification_matrix'])
-        print(self.parameters['~rectification_matrix'].shape)
+        #
+        # print(self.parameters['~camera_matrix'])
+        # print(self.parameters['~camera_matrix'].shape)
+        #
+        # print(self.parameters['~distortion_coefficients'])
+        # print(self.parameters['~distortion_coefficients'].shape)
+        #
+        # print(self.parameters['~projection_matrix'])
+        # print(self.parameters['~projection_matrix'].shape)
+        #
+        # print(self.parameters['~rectification_matrix'])
+        # print(self.parameters['~rectification_matrix'].shape)
 
         # Initialize mappings
 
@@ -167,7 +170,6 @@ class Augmented:
         print('in paramreader intrinsic')
         # Check file existence
         fname = self.getFilePath(self.veh_name, 'extrinsic')
-        print(fname)
         # Use the default values from the config folder if a
         # robot-specific file does not exist.
         if not os.path.isfile(fname):
@@ -197,7 +199,6 @@ class Augmented:
                 pass
 
         fnameExt = self.getFilePath(self.veh_name, 'intrinsic')
-        print('in paramreader extrinsic')
 
         # Use the default values from the config folder if a
         # robot-specific file does not exist.
@@ -228,8 +229,6 @@ class Augmented:
             else:
                 # Skip if not defined, use default value instead.
                 pass
-
-        print('loaded params')
 
     def getFilePath(self, name, cameraCalibration):
         """
