@@ -10,10 +10,10 @@ from duckietown import DTROS
 from sensor_msgs.msg import CompressedImage
 from duckietown_msgs.msg import WheelsCmdStamped
 from cv_bridge import CvBridge
+from augmented_reality import Augmented
 
 
-
-class augmentedNode(DTROS):
+class augmentedNode(DTROS, Augmented):
     """AugmentedNode Behaviour
 
     This node implements Braitenberg vehicle behavior on a Duckiebot.
@@ -54,109 +54,53 @@ class augmentedNode(DTROS):
     def __init__(self, node_name):
 
         # Initialize the DTROS parent class
-        super(BraitenbergNode, self).__init__(node_name=node_name)
-        print(rospy.get_namespace())
-        self.veh_name = rospy.get_namespace().strip("/")
+        super(augmentedNode, self).__init__(node_name=node_name)
+        self.veh_name = os.environ['VEHICLE_NAME']
+        self.map_name = os.environ['MAP_NAME']
+
+        print('initialized augmented')
         # Use the kinematics calibration for the gain and trim
-        self.parameters['~gain'] = None
-        self.parameters['~trim'] = None
-        self.parameters['~baseline'] = None
-        self.parameters['~radius'] = None
-        self.parameters['~k'] = None
-        self.parameters['~limit'] = None
+        # self.parameters['~gain'] = None
+        # self.parameters['~trim'] = None
+        # self.parameters['~baseline'] = None
+        # self.parameters['~radius'] = None
+        # self.parameters['~k'] = None
+        # self.parameters['~limit'] = None
 
         # Set parameters using a robot-specific yaml file if such exists
-        self.readParamFromFile()
-        rospy.set_param("~gain", 1)
-        self.updateParameters()
-        rospy.set_param("~gain", 1)
+        # self.readParamFromFile()
+        # rospy.set_param("~gain", 1)
+        # self.updateParameters()
+        # rospy.set_param("~gain", 1)
 
         # Wait for the automatic gain control
         # of the camera to settle, before we stop it
 
 
-        rospy.set_param("".join(['/',self.veh_name,'/camera_node/exposure_mode']), 'off')
+        #rospy.set_param("".join(['/',self.veh_name,'/camera_node/exposure_mode']), 'off')
                 # change resolution camera
-        topic = '/' + self.veh_name + '/camera_node/image/compressed'
+        Augmented(node_name = node_name)
+        rospy.set_param('/' + 'symphony' + '/camera_node/res_w', 300) # 640
+        rospy.set_param('/' + 'symphony' + '/camera_node/res_h', 300) # 480
+        topic = '/' + 'symphony' + '/camera_node/image/compressed'
 
+        self.subscriber(topic, CompressedImage, self.callback, queue_size=1)
+        print('subscribed')
 
-        self.subscriber(topic, CompressedImage, self.drawLines)
-        imageName = 'hoi'
-
-        topicPub = '/' + self.veh_name + '/augmentedNode/' + str(imageName) + 'image/compressed'
-
-        rate = rospy.Rate(4) # 4Hz
+        imageName = self.map_name.split('.')[0]
+        topicPub = '/' + self.veh_name + '/augmented_reality_node/' + str(imageName) + '/image/compressed'
 
         self.pub_wheels_cmd = self.publisher(topicPub, CompressedImage, queue_size=1)
         self.log("Initialized")
 
-
-
-    def drawLines(self, data):
-        cv_image = CvBridge().compressed_imgmsg_to_cv2(data, desired_encoding="passthrough")
-        finalImage = cv_image.copy()
-        imageHeight, imageWidth, channels = finalImage.shape
-
-
-        with open("hud.yaml", 'r') as stream:
-            try:
-                text = yaml.safe_load(stream)
-                referenceFrame = text['points']['TL'][0]
-
-                TL = text['points']['TL'][1]
-                TR = text['points']['TR'][1]
-                BR = text['points']['BR'][1]
-                BL = text['points']['BL'][1]
-
-                for entry in text['segments']:
-
-                    point1X = text['points'][entry['points'][0]][1][0]
-                    point1Y = text['points'][entry['points'][0]][1][1]
-                    point2X = text['points'][entry['points'][1]][1][0]
-                    point2Y = text['points'][entry['points'][1]][1][1]
-
-                    point1RatioX = point1X / 1
-                    point1RatioY = point1Y / 1
-                    point2RatioX = point2X / 1
-                    point2RatioY = point2Y / 1
-
-                    point1CameraFrameX = point1RatioX * point1X
-                    point1CameraFrameY = point1RatioY * point1Y
-                    point2CameraFrameX = point2RatioX * point2X
-                    point2CameraFrameY = point2RatioY * point2Y
-
-                    point1 = [point1CameraFrameX, point1CameraFrameY]
-                    point2 = [point2CameraFrameX, point2CameraFrameY]
-
-                    color = entry['color']
-
-                    image = self.draw_segment(data, point1, point2, color)
-                    image_message = CvBridge().cv2_to_compressed_imgmsg(output)
-                    self.pub_wheels_cmd.publish(image_message)
-
-            except yaml.YAMLError as exc:
-                print(exc)
-
-    def draw_segment(self, image, pt_x, pt_y, color):
-    defined_colors = {
-        'red': ['rgb', [1, 0, 0]],
-        'green': ['rgb', [0, 1, 0]],
-        'blue': ['rgb', [0, 0, 1]],
-        'yellow': ['rgb', [1, 1, 0]],
-        'magenta': ['rgb', [1, 0 , 1]],
-        'cyan': ['rgb', [0, 1, 1]],
-        'white': ['rgb', [1, 1, 1]],
-        'black': ['rgb', [0, 0, 0]]}
-    _color_type, [r, g, b] = defined_colors[color]
-    cv2.line(image, (pt_x[0], pt_y[0]), (pt_x[1], pt_y[1]), (b * 255, g * 255, r * 255), 5)
-    return image
-
-
+    def callback(self, data):
+        returnedImage = Augmented.process_image(self, data)
+        self.pub_wheels_cmd.publish(returnedImage)
 
 
 
 if __name__ == '__main__':
     # Initialize the node
-    camera_node = augmentedNode(node_name='augmented')
+    camera_node = augmentedNode(node_name='augmented_reality_node')
     # Keep it spinning to keep the node alive
     rospy.spin()

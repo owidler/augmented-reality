@@ -4,4 +4,6 @@ set -e
 
 # YOUR CODE BELOW THIS LINE
 # ----------------------------------------------------------------------------
-roslaunch augmentedreality augmentedNode.py
+roscore &
+sleep 5
+rosrun augmentedreality augmentedNode.py
