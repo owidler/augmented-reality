@@ -9,6 +9,7 @@ import yaml
 from sensor_msgs.msg import CompressedImage
 from duckietown_msgs.msg import WheelsCmdStamped
 from cv_bridge import CvBridge
+from image_geometry import PinholeCameraModel
 
 
 
@@ -32,6 +33,7 @@ class Augmented:
         self.readParamFromFile()
         print('initialized augmented')
 
+        self.pcm_ = PinholeCameraModel()
         # Wait for the automatic gain control
         # of the camera to settle, before we stop it
 
@@ -39,9 +41,30 @@ class Augmented:
         #rospy.set_param("".join(['/',self.veh_name,'/camera_node/exposure_mode']), 'off')
                 # change resolution camera
 
-    def drawLines(self, data):
+    def ground2pixel(self, image, pointX, pointY):
+        imageHeight, imageWidth, channels = image.shape
 
-        imageHeight, imageWidth, channels = data.shape
+        homographyMatrix = self.parameters['~homography']
+
+        pointMatrix = np.transpose(np.array([pointX, pointY, 1]))
+        Hinv = np.linalg.inv(homographyMatrix)
+
+
+        transformedMatrix = np.linalg.solve(homographyMatrix, pointMatrix)
+        print(transformedMatrix)
+        uL = transformedMatrix[0]
+        vL = transformedMatrix[1]
+        wL = transformedMatrix[2]
+        u = int(round(uL/wL,0))
+        v = int(round(vL/wL,0))
+        print(uL, vL, wL, u, v)
+
+        return u, v
+
+
+    def drawLines(self, imageToDraw):
+
+        imageHeight, imageWidth, channels = imageToDraw.shape
         mapName = self.map_name
         filePath = '/code/catkin_ws/src/augmented-reality/packages/augmentedreality/map/' + mapName
         with open(filePath, 'r') as stream:
@@ -61,7 +84,6 @@ class Augmented:
                     point2X = text['points'][entry['points'][1]][1][1]
                     point2Y = text['points'][entry['points'][1]][1][0]
 
-                    print(point1X, point1Y, point2X, point2Y)
 
                     point1RatioX = point1X / 1
                     point1RatioY = point1Y / 1
@@ -73,17 +95,24 @@ class Augmented:
                     point2CameraFrameX = int(round(point2RatioX * imageWidth,0))
                     point2CameraFrameY = int(round(point2RatioY * imageHeight,0))
 
-                    print(point1CameraFrameX, point1CameraFrameY, point2CameraFrameX, point2CameraFrameY)
 
                     pointX = [point1CameraFrameX, point2CameraFrameX]
                     pointY = [point1CameraFrameY, point2CameraFrameY]
 
                     color = entry['color']
 
-                    image = self.draw_segment(data, pointX, pointY, color)
-                image_message = CvBridge().cv2_to_compressed_imgmsg(image)
 
+                    if self.map_name == 'calibration_pattern.yaml':
+                        point1X, point1Y = self.ground2pixel(imageToDraw, point1X, point1Y)
+                        point2X, point2Y = self.ground2pixel(imageToDraw, point2X, point2Y)
+                        pointX = [point1X, point2X]
+                        pointY = [point1Y, point2Y]
+                        print(pointX, pointY)
+                    imageToDraw = self.draw_segment(imageToDraw, pointX, pointY, color)
+
+                image_message = CvBridge().cv2_to_compressed_imgmsg(imageToDraw)
                 return image_message
+
             except yaml.YAMLError as exc:
                 print(exc)
 
@@ -95,7 +124,7 @@ class Augmented:
 
         self.readParamFromFile()
 
-        self.parameters['~homography'] = rospy.get_param('~homography')
+        self.parameters['~homography'] = np.reshape(np.array(rospy.get_param('~homography')), (3,3))
         self.parameters['~camera_matrix'] = np.array(rospy.get_param('~camera_matrix'))
         self.parameters['~distortion_coefficients'] = np.array(rospy.get_param('~distortion_coefficients'))
         self.parameters['~projection_matrix'] = np.array(rospy.get_param('~projection_matrix'))
@@ -106,36 +135,19 @@ class Augmented:
         self.parameters['~projection_matrix'] = np.reshape(self.parameters['~projection_matrix'], (3, 4))
         self.parameters['~rectification_matrix'] = np.reshape(self.parameters['~rectification_matrix'], (3, 3))
 
-        #
-        # print(self.parameters['~camera_matrix'])
-        # print(self.parameters['~camera_matrix'].shape)
-        #
-        # print(self.parameters['~distortion_coefficients'])
-        # print(self.parameters['~distortion_coefficients'].shape)
-        #
-        # print(self.parameters['~projection_matrix'])
-        # print(self.parameters['~projection_matrix'].shape)
-        #
-        # print(self.parameters['~rectification_matrix'])
-        # print(self.parameters['~rectification_matrix'].shape)
-
-        # Initialize mappings
-
-        # Used for rectification
-        self.mapx = None
-        self.mapy = None
-
-        # Used for distortion
-        self.rmapx = None
-        self.rmapy = None
 
         imageHeight, imageWidth, channels = finalImage.shape
+
+        # Used for rectification
+        self.mapx = np.ndarray(shape=(imageHeight, imageWidth, 1), dtype='float32')
+        self.mapy = np.ndarray(shape=(imageHeight, imageWidth, 1), dtype='float32')
+
 
         self.mapx, self.mapy = cv2.initUndistortRectifyMap(self.parameters['~camera_matrix'],
             self.parameters['~distortion_coefficients'], self.parameters['~rectification_matrix'],
             self.parameters['~projection_matrix'], (imageWidth, imageHeight), cv2.CV_32FC1)
 
-        undistortedImage = cv2.remap(finalImage, self.mapx, self.mapy, cv2.INTER_NEAREST)
+        undistortedImage = cv2.remap(finalImage, self.mapx, self.mapy, cv2.INTER_CUBIC)
         returnImage = self.drawLines(undistortedImage)
 
         return returnImage

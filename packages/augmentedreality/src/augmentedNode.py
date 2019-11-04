@@ -87,9 +87,11 @@ class augmentedNode(DTROS, Augmented):
         self.subscriber(topic, CompressedImage, self.callback, queue_size=1)
 
         imageName = self.map_name.split('.')[0]
-        topicPub = '/' + self.veh_name + '/augmented_reality_node/' + str(imageName) + '/image/compressed'
+        print(imageName)
 
-        self.pub_wheels_cmd = self.publisher(topicPub, CompressedImage, queue_size=1)
+        topicPub = '/' + self.veh_name + '/augmented_reality_node/' + str(imageName) + '/image/compressed'
+        print(topicPub)
+        self.pub_wheels_cmd = self.publisher(topicPub, CompressedImage)
 
     def callback(self, data):
         returnedImage = Augmented.process_image(self, data)
