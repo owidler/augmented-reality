@@ -80,9 +80,9 @@ class augmentedNode(DTROS, Augmented):
         #rospy.set_param("".join(['/',self.veh_name,'/camera_node/exposure_mode']), 'off')
                 # change resolution camera
         Augmented(node_name = node_name)
-        rospy.set_param('/' + 'symphony' + '/camera_node/res_w', 640) # 640
-        rospy.set_param('/' + 'symphony' + '/camera_node/res_h', 480) # 480
-        topic = '/' + 'symphony' + '/camera_node/image/compressed'
+        rospy.set_param('/' + 'autobot29' + '/camera_node/res_w', 640) # 640
+        rospy.set_param('/' + 'autobot29' + '/camera_node/res_h', 480) # 480
+        topic = '/' + 'autobot29' + '/camera_node/image/compressed'
 
         self.subscriber(topic, CompressedImage, self.callback, queue_size=1)
 

@@ -9,8 +9,6 @@ import yaml
 from sensor_msgs.msg import CompressedImage
 from duckietown_msgs.msg import WheelsCmdStamped
 from cv_bridge import CvBridge
-from image_geometry import PinholeCameraModel
-
 
 
 class Augmented:
@@ -33,7 +31,6 @@ class Augmented:
         self.readParamFromFile()
         print('initialized augmented')
 
-        self.pcm_ = PinholeCameraModel()
         # Wait for the automatic gain control
         # of the camera to settle, before we stop it
 
@@ -45,19 +42,21 @@ class Augmented:
         imageHeight, imageWidth, channels = image.shape
 
         homographyMatrix = self.parameters['~homography']
+        proj_matrix = self.parameters['~projection_matrix'] 
+        print(pointX, pointY)
+        coord = np.array([pointX, pointY, 1.0])
 
-        pointMatrix = np.transpose(np.array([pointX, pointY, 1]))
-        Hinv = np.linalg.inv(homographyMatrix)
+        
+        transformedMatrix = np.linalg.solve(homographyMatrix, coord)
+        print("transpose", transformedMatrix)
 
-
-        transformedMatrix = np.linalg.solve(homographyMatrix, pointMatrix)
-        print(transformedMatrix)
         uL = transformedMatrix[0]
         vL = transformedMatrix[1]
         wL = transformedMatrix[2]
         u = int(round(uL/wL,0))
         v = int(round(vL/wL,0))
-        print(uL, vL, wL, u, v)
+
+        print(u,v)
 
         return u, v
 
@@ -138,17 +137,23 @@ class Augmented:
 
         imageHeight, imageWidth, channels = finalImage.shape
 
+        #undist_img = cv2.undistort(finalImage, self.parameters['~camera_matrix'], self.parameters['~distortion_coefficients'])
+
+
         # Used for rectification
         self.mapx = np.ndarray(shape=(imageHeight, imageWidth, 1), dtype='float32')
         self.mapy = np.ndarray(shape=(imageHeight, imageWidth, 1), dtype='float32')
 
 
         self.mapx, self.mapy = cv2.initUndistortRectifyMap(self.parameters['~camera_matrix'],
-            self.parameters['~distortion_coefficients'], self.parameters['~rectification_matrix'],
-            self.parameters['~projection_matrix'], (imageWidth, imageHeight), cv2.CV_32FC1)
+            self.parameters['~distortion_coefficients'],
+            self.parameters['~rectification_matrix'],  
+            self.parameters['~camera_matrix'], (imageWidth, imageHeight), cv2.CV_32FC1)
 
         undistortedImage = cv2.remap(finalImage, self.mapx, self.mapy, cv2.INTER_CUBIC)
         returnImage = self.drawLines(undistortedImage)
+
+        
 
         return returnImage
 
