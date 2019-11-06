@@ -80,9 +80,9 @@ class augmentedNode(DTROS, Augmented):
         #rospy.set_param("".join(['/',self.veh_name,'/camera_node/exposure_mode']), 'off')
                 # change resolution camera
         Augmented(node_name = node_name)
-        rospy.set_param('/' + 'autobot29' + '/camera_node/res_w', 640) # 640
-        rospy.set_param('/' + 'autobot29' + '/camera_node/res_h', 480) # 480
-        topic = '/' + 'autobot29' + '/camera_node/image/compressed'
+        rospy.set_param('/' + self.veh_name + '/camera_node/res_w', 640) # 640
+        rospy.set_param('/' + self.veh_name + '/camera_node/res_h', 480) # 480
+        topic = '/' + self.veh_name + '/camera_node/image/compressed'
 
         self.subscriber(topic, CompressedImage, self.callback, queue_size=1)
 
@@ -91,7 +91,7 @@ class augmentedNode(DTROS, Augmented):
 
         topicPub = '/' + self.veh_name + '/augmented_reality_node/' + str(imageName) + '/image/compressed'
         print(topicPub)
-        self.pub_wheels_cmd = self.publisher(topicPub, CompressedImage)
+        self.pub_wheels_cmd = self.publisher(topicPub, CompressedImage, queue_size = 1)
 
     def callback(self, data):
         returnedImage = Augmented.process_image(self, data)

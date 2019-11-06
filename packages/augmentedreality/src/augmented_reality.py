@@ -43,11 +43,11 @@ class Augmented:
 
         homographyMatrix = self.parameters['~homography']
         proj_matrix = self.parameters['~projection_matrix'] 
-        print(pointX, pointY)
-        coord = np.array([pointX, pointY, 1.0])
-
+        camera_matrix = self.parameters['~camera_matrix']
+        coord = np.transpose(np.array([pointY, pointX, 1.0]))
+        p = homographyMatrix
         
-        transformedMatrix = np.linalg.solve(homographyMatrix, coord)
+        transformedMatrix = np.linalg.solve(p , coord)
         print("transpose", transformedMatrix)
 
         uL = transformedMatrix[0]
@@ -55,8 +55,6 @@ class Augmented:
         wL = transformedMatrix[2]
         u = int(round(uL/wL,0))
         v = int(round(vL/wL,0))
-
-        print(u,v)
 
         return u, v
 
@@ -136,8 +134,6 @@ class Augmented:
 
 
         imageHeight, imageWidth, channels = finalImage.shape
-
-        #undist_img = cv2.undistort(finalImage, self.parameters['~camera_matrix'], self.parameters['~distortion_coefficients'])
 
 
         # Used for rectification
