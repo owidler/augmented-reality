@@ -67,12 +67,9 @@ class Augmented:
         with open(filePath, 'r') as stream:
             try:
                 text = yaml.safe_load(stream)
-                referenceFrame = text['points']['TL'][0]
+                
+                positions = []
 
-                TL = text['points']['TL'][1]
-                TR = text['points']['TR'][1]
-                BR = text['points']['BR'][1]
-                BL = text['points']['BL'][1]
 
                 for entry in text['segments']:
 
@@ -99,7 +96,7 @@ class Augmented:
                     color = entry['color']
 
 
-                    if self.map_name == 'calibration_pattern.yaml':
+                    if self.map_name == 'calibration_pattern.yaml' or self.map_name == 'lane.yaml' or self.map_name == 'intersection_4way.yaml':
                         point1X, point1Y = self.ground2pixel(imageToDraw, point1X, point1Y)
                         point2X, point2Y = self.ground2pixel(imageToDraw, point2X, point2Y)
                         pointX = [point1X, point2X]
